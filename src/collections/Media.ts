@@ -1,45 +1,59 @@
-import { User } from '../payload-types'
-import { Access, CollectionConfig } from 'payload/types'
+import { User } from '../payload-types';
+import { Access, CollectionConfig } from 'payload/types';
 
-const isAdminOrHasAccessToImages =
-  (): Access =>
-  async ({ req }) => {
-    const user = req.user as User | undefined
+const isAdminOrHasAccessToImages = (): Access => async ({ req }) => {
+  const user = req.user as User | undefined;
 
-    if (!user) return false
-    if (user.role === 'admin') return true
-
-    return {
-      user: {
-        equals: req.user.id,
-      },
-    }
+  if (!user) {
+    console.log('No user found');
+    return false;
   }
+  if (user.role === 'admin') {
+    console.log('User is admin');
+    return true;
+  }
+
+  console.log('User is not admin, checking access for images');
+  return {
+    user: {
+      equals: req.user.id,
+    },
+  };
+};
 
 export const Media: CollectionConfig = {
   slug: 'media',
   hooks: {
     beforeChange: [
       ({ req, data }) => {
-        return { ...data, user: req.user.id }
+        console.log('beforeChange hook triggered', { user: req.user, data });
+        return { ...data, user: req.user.id };
       },
     ],
   },
   access: {
     read: async ({ req }) => {
-      const referer = req.headers.referer
+      const referer = req.headers.referer;
+      console.log('Read access check', { user: req.user, referer });
 
       if (!req.user || !referer?.includes('sell')) {
-        return true
+        console.log('Read access granted');
+        return true;
       }
 
-      return await isAdminOrHasAccessToImages()({ req })
+      const access = await isAdminOrHasAccessToImages()({ req });
+      console.log('Read access result:', access);
+      return access;
     },
     delete: isAdminOrHasAccessToImages(),
     update: isAdminOrHasAccessToImages(),
   },
   admin: {
-    hidden: ({ user }) => user.role !== 'admin',
+    hidden: ({ user }) => {
+      const isHidden = user.role !== 'admin';
+      console.log('Admin panel visibility check', { user, isHidden });
+      return isHidden;
+    },
   },
   upload: {
     staticURL: '/media',
@@ -78,4 +92,4 @@ export const Media: CollectionConfig = {
       },
     },
   ],
-}
+};
